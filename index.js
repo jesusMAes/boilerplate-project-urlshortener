@@ -37,6 +37,8 @@ app.use('/public', express.static(`${process.cwd()}/public`));
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended:true}))
 
+
+
 app.get('/', function(req, res) {
   res.sendFile(process.cwd() + '/views/index.html');
 });
@@ -45,10 +47,7 @@ app.get('/', function(req, res) {
 app.get('/api/hello', function(req, res) {
   res.json({ greeting: 'hello API' });
 });
-const options ={
-   family: 6,
-  hints: dns.ADDRCONFIG | dns.V4MAPPED,
-}
+
 
 app.post("/api/shorturl/", (req, res) => {
   //check if is a valid url
@@ -60,25 +59,35 @@ app.post("/api/shorturl/", (req, res) => {
   //remove http for lookup validation
   const regex = /^https?:\/\//i
   let replaceUrl = postUrl.replace(regex, '')
-
+  let urlParamsIndex = replaceUrl.lastIndexOf("/");
+  if (urlParamsIndex != -1){
+    replaceUrl = replaceUrl.slice(0, urlParamsIndex)
+  }
+  console.log(replaceUrl)
+  
    dns.lookup(replaceUrl, (err, address,family) => {
-     
+     //if doesnt have http return
+     if(regex.test(postUrl) ==false){
+        return res.json({error: 'invalid url'}); 
+     }
+    //if not a valir url return
     if(err){
      return res.json({error: 'invalid url'}); 
     }else{
-
+      //is valid, save to db
       let newUrl = new urlModel({
       url: postUrl
         })
     newUrl.save( (err) =>{
-    let retrieveId
-      console.log("saved")
+    let retrieveId;
+      console.log("saved");
     urlModel.findOne({url:postUrl}, (err,found) =>{
         if(err) return res.send("Hubo un erro")
         retrieveId = found.id
         console.log(retrieveId)
         let jsonUrl = postUrl;
-        let jsonKey = retrieveId; res.json({original_url:postUrl,short_url:retrieveId})
+        let jsonKey = retrieveId;
+      res.json({original_url:postUrl,short_url:retrieveId})
       })
      })//save
   
@@ -89,14 +98,17 @@ app.post("/api/shorturl/", (req, res) => {
 
 //redirect
 app.get("/api/shorturl/:short_url", (req,res) =>{
- console.log(req.url)
   //get param url
   let requestUrl = req.params.short_url
 
   //search in Db
-  urlModel.findOne({id:requestUrl}, (err,found)=>{
-    let redirection = found.url;
-    res.redirect(redirection)
+  urlModel.findOne({id:requestUrl},(err ,found)=>{
+    // if(err == null){
+    //   return res.json({error: 'no document found'})
+    // }
+     let redirection = found.url;
+     res.redirect(redirection)
+    
   })
   
 })
